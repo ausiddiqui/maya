@@ -8,6 +8,7 @@ import pymysql
 import pandas as pd
 from bs4 import BeautifulSoup
 
+## Getting Data
 # Changing directory
 os.chdir("")
 
@@ -35,18 +36,25 @@ data = pd.DataFrame(result)
 # Importing data from the excel file
 #data = pd.read_excel("answers.xlsx")
 
-## Data cleaning
-body = data["body"]
 
-# Checking for html tag
-bool(BeautifulSoup(body[2], "html.parser").find())
+## Data cleaning
+data["body"] = data["body"].fillna("")
 
 # Cleaning html
-## 
+nrow = data.shape[0]
+body = list()
+
+for i in range(0, nrow):
+    body.append(BeautifulSoup(data["body"][i], "html"))
+    body[i] = body[i].get_text()
+
+body = pd.Series(body)
 
 # Cleaning escape characters
 body_new = body.str.replace("[\r\n\t]", "")
 body_new = body_new.str.replace("[\\\\{2}]", " ")
-body_new = body_new.str.replace("&rsquo;", "'")
+
+# Fixing unicode
+
 
 data["body"] = body_new
