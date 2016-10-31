@@ -7,6 +7,7 @@ import os
 import pymysql
 import pandas as pd
 from bs4 import BeautifulSoup
+from ftfy import fix_text
 
 ## Getting Data
 # Changing directory
@@ -38,23 +39,22 @@ data = pd.DataFrame(result)
 
 
 ## Data cleaning
-data["body"] = data["body"].fillna("")
+data["body"] = data["body"].fillna("")					# Filling missing values
 
-# Cleaning html
+# Cleaning html and fixing unicode
 nrow = data.shape[0]
 body = list()
 
 for i in range(0, nrow):
     body.append(BeautifulSoup(data["body"][i], "html"))
-    body[i] = body[i].get_text()
+    body[i] = body[i].get_text()                       	# Remove html
+    body[i] = fix_text(body[i])                   		# Fix unicode characters
 
 body = pd.Series(body)
 
-# Cleaning escape characters
-body_new = body.str.replace("[\r\n\t]", "")
+# Cleaning special characters
+body_new = body.str.replace("[\r\n\t$\xa0]", "")
 body_new = body_new.str.replace("[\\\\{2}]", " ")
 
-# Fixing unicode
-
-
+# Putting the cleaned up data back in the dataframe
 data["body"] = body_new
