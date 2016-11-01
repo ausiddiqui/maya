@@ -56,8 +56,11 @@ body = pd.Series(body)
 body_new = body.str.strip()
 body_new = body_new.str.replace("[\s]{2,}", "")
 
+# Remove markdown
+body_new = body_new.str.replace("[$#~^*_]", "")
+
 # Cleaning special characters
-body_new = body_new.str.replace("[\r\n\t$\xa0]", "")
+body_new = body_new.str.replace("[\r\n\t\xa0]", "")
 body_new = body_new.str.replace("[\\\\]{1,}", " ")
 
 # Putting the cleaned up data back in the dataframe
