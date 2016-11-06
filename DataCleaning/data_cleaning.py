@@ -52,9 +52,16 @@ for i in range(0, nrow):
 
 body = pd.Series(body)
 
+# Strip whitespace
+body_new = body.str.strip()
+body_new = body_new.str.replace("[\s]{2,}", "")
+
+# Remove markdown
+body_new = body_new.str.replace("[$#~^*_]", "")
+
 # Cleaning special characters
-body_new = body.str.replace("[\r\n\t$\xa0]", "")
-body_new = body_new.str.replace("[\\\\{2}]", " ")
+body_new = body_new.str.replace("[\r\n\t\xa0]", "")
+body_new = body_new.str.replace("[\\\\]{1,}", " ")
 
 # Putting the cleaned up data back in the dataframe
 data["body"] = body_new
