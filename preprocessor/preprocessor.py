@@ -1,3 +1,4 @@
+
 from HTMLParser import HTMLParser
 import re
 
@@ -23,11 +24,17 @@ class Cleaner(object):
     @staticmethod
     def punctuation_remover(data):
         import string
-        if isinstance(data, str):
-            data = unicode(data)
         remove_punctuation_map = dict((ord(char), None) for char in string.punctuation)
         return data.translate(remove_punctuation_map)
 
+    @staticmethod
+    def character_replacer(data):
+        return data.replace('"', '').replace("'", "")
+
+    @staticmethod
+    def remove_special_character(data):
+        import unicodedata
+        return unicodedata.normalize('NFKD', data).encode('ascii', 'ignore').strip()
 """
 This class derives from the base HTMLParser class
 The function of the overriden handle_data function is to append the data that is within in html tags
@@ -59,10 +66,9 @@ class Decoder(object):
     @staticmethod
     def utf8_decode(data):
         try:
-            return unicode(data.encode('latin-1'))
-        except UnicodeError:
-            return "UnicodeError occurred " + str(UnicodeError.message)
-
+            return data.encode('latin-1').decode('utf-8')
+        except Exception:
+            return "UnicodeError occurred " + str(Exception.message)
     """
     :param data: html_entity_encoded data
     :return: decoded data without any html tags or Exception
@@ -95,10 +101,11 @@ class Decoder(object):
                 try:
                     if data['source'] == 'app':
                         yield self.html_entity_decode(data[fields])
-                    elif data['source'] == 'web':
-                        yield self.utf8_decode(data[fields])
                     else:
-                        yield data[fields]
+                        if not self.if_in_english(data[fields]):
+                            yield self.utf8_decode(data[fields])
+                        else:
+                            yield data[fields]
                 except Exception:
                     yield Exception.message
             else:
@@ -119,48 +126,147 @@ class Decoder(object):
             try:
                 if data['source'] == 'app':
                     return self.html_entity_decode(data[fields])
-                elif data['source'] == 'web':
-                    return self.utf8_decode(data[fields])
                 else:
-                    return data[fields]
+                    if not self.if_in_english(data[fields]):
+                        return self.utf8_decode(data[fields])
+                    else:
+                        return data[fields]
             except Exception:
                 return Exception.message
+                pass
         else:
             return "Nothing with id " + str(id_no)
+
+
+    @staticmethod
+    def if_in_english(data):
+        try:
+            data.encode('ascii')
+        except UnicodeEncodeError:
+            return False
+        else:
+            return True
 
 
 if __name__ == '__main__':
     from database import Database
 
-    # #connection to the database
+    #connection to the database
+    # database = Database(
+    #     '<host_name>',
+    #     '<database_name>',
+    #     '<user_name>',
+    #     '<password>',
+    #     '<character_set>'
+    # )
+
     database = Database(
-        '<host_name>',
-        '<database_name>',
-        '<user_name>',
-        '<password>',
-        '<character_set>'
+        'localhost',
+        'log_user',
+        'root',
+        'root',
+        'utf8mb4'
     )
+
     connection = database.connect_with_pymysql()
 
     # #for a successful connection
     if connection:
         try:
             with connection.cursor() as cursor:
-                # #decoder instance
-                decoder = Decoder()
+                import urllib2
+                import json
 
-                # #example: with decode_in_range
-                for data in decoder.decode_in_range(cursor, 'table_name', 'field_name', 1, 100):
-                    print data
-                # #example: with decode_by_id
-                data = decoder.decode_with_id(cursor, 'table_name', 'field_name', 99475)
-                # #example: punctuation remove
-                data = Cleaner.punctuation_remover(data)
-                # #example: whitespace reomve
-                data = Cleaner.whitespace_remover(data)
-                # #example tokenizing
-                for word in data:
-                    print word
+                sql = "select id,IP from logs_user"
+                cursor.execute(sql)
+                data = cursor.fetchall()
+
+                for record in data:
+                    data = urllib2.urlopen('http://freegeoip.net/json/'+record['IP'])
+                    received_data = data.read()
+
+                    if received_data:
+                        data = json.loads(received_data)
+
+
+                        country = data['country_code'] + ': ' + data['country_name']
+                        region = data['region_code'] + ': ' +data['region_name']
+                        city = data['city']
+                        latitude = data['latitude']
+                        longitude = data['longitude']
+                        zip_code = data['zip_code']
+
+                        update = "update logs_user set Zip_code='"+zip_code+"', Country='"\
+                                 +country+"', Region='"+region+"', City='"+city+"', Latitude='"\
+                                 +str(latitude)+"', Longitude='"+str(longitude)+"' where id="+str(record['id'])
+                        cursor.execute(update)
+                        connection.commit()
+
+
+                # sql = "select questions.id as q_id,users.id FROM questions LEFT JOIN users ON questions.email=users.email"
+                # cursor.execute(sql)
+                # data = cursor.fetchall()
+                #
+                # for record in data:
+                #     if record['id']:
+                #         insert = "insert into question_user(user_id,question_id) values('"+str(record['id']) +"','"+str(record['q_id'])+"')"
+                #         cursor.execute(insert)
+                #         connection.commit()
+                #     else:
+                #         insert = "insert into question_user(question_id) values('" + str(record['q_id']) + "')"
+                #         cursor.execute(insert)
+                #         connection.commit()
+                # # #decoder instance
+                # decoder = Decoder()
+                #
+                # # #example: with decode_in_range
+                # for data in decoder.decode_in_range(cursor, 'table_name', 'field_name', 1, 100):
+                #     print data
+                # # #example: with decode_by_id
+                # data = decoder.decode_with_id(cursor, 'table_name', 'field_name', 99475)
+                # # #example: punctuation remove
+                # data = Cleaner.punctuation_remover(data)
+                # # #example: whitespace reomve
+                # data = Cleaner.whitespace_remover(data)
+                # # #example tokenizing
+                # for word in data:
+                #     print word
+                # sql = "SELECT id,body,source FROM questions where status='spam' and user_id is null"
+                # cursor.execute(sql)
+                # data = cursor.fetchall()
+                #
+                # repeat_count_app_user = 0
+                # repeat_count_m_user = 0
+                # repeat_count_web_user = 0
+                # repeat_count_int_user = 0
+                #
+                # others = 0
+                #
+                # for record in data:
+                #     sql = "SELECT id FROM questions WHERE id!="+str(record['id'])+" and body='"+record['body']+"'"
+                #     cursor.execute(sql)
+                #     data = cursor.fetchone()
+                #     if data:
+                #         if record['source'] == 'app':
+                #             repeat_count_app_user += 1
+                #         elif record['source'] == 'web':
+                #             repeat_count_web_user += 1
+                #         elif record['source'] == 'm-site':
+                #             repeat_count_m_user += 1
+                #         else:
+                #             repeat_count_int_user += 1
+                #     else:
+                #         print str(record['id']) + '. length: ' + str(len(record['body'])) + ' :: ' + record['body']
+                #
+                # print ''
+                # print 'app: ' + str(repeat_count_app_user)
+                # print 'web: ' + str(repeat_count_web_user)
+                # print 'm-site: ' + str(repeat_count_m_user)
+                # print 'internet: ' + str(repeat_count_int_user)
+
+
+                # print "Repeat count: " + str(repeat_count)
+                # print "Others: " + str(others)
         finally:
             # #closing the connection
             connection.close()
