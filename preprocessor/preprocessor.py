@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from HTMLParser import HTMLParser
 import re
 
@@ -14,8 +15,11 @@ class Cleaner(object):
     """
     @staticmethod
     def whitespace_remover(data):
-        return re.sub('\s+', ' ', data.strip())
-
+        try:
+            data = re.sub('\s+', ' ', data.strip()).lower()
+            return data
+        except AttributeError:
+            return None
     """
     :param data: Data (str or unicode)
     :return: Data without the punctuation marks
@@ -23,10 +27,24 @@ class Cleaner(object):
     @staticmethod
     def punctuation_remover(data):
         import string
-        if isinstance(data, str):
-            data = unicode(data)
-        remove_punctuation_map = dict((ord(char), None) for char in string.punctuation)
-        return data.translate(remove_punctuation_map)
+        try:
+            remove_punctuation_map = dict((ord(char), u' ') for char in string.punctuation)
+            for i in [2404, 55357, 56842, 55356, 57198, 57252]:
+                remove_punctuation_map[i] = u' '
+            result = data.translate(remove_punctuation_map)
+            return result
+        except TypeError:
+            return None
+
+    @staticmethod
+    def character_replacer(data):
+        return data.replace('"', '').replace("'", "")
+
+    @staticmethod
+    def remove_special_character(data):
+        char = {55357: u' ', 56842: u' ', 55356: u' ', 57198: u' ', 57252: u' '}
+        result = data.translate(char)
+        return result
 
 """
 This class derives from the base HTMLParser class
@@ -57,12 +75,11 @@ class Decoder(object):
     :return: unicode type decoded object or Exception
     """
     @staticmethod
-    def utf8_decode(data):
+    def utf8_decode(data, id):
         try:
-            return unicode(data.encode('latin-1'))
+            return data.encode('latin-1').decode('utf-8')
         except UnicodeError:
-            return "UnicodeError occurred " + str(UnicodeError.message)
-
+            return data
     """
     :param data: html_entity_encoded data
     :return: decoded data without any html tags or Exception
@@ -75,7 +92,7 @@ class Decoder(object):
             html.feed(decoded_data)  # #feeding the data to the html_parser
             return html.string  # #endoed and tag_less data
         except Exception:
-            return "error"
+            return None
 
     """
     :param connection_cursor: pymysql.connection cursor for different queries
@@ -85,6 +102,7 @@ class Decoder(object):
     :param end: the range will stop in this id (including this), if no end is provided the ending range will be the last entry
     """
     def decode_in_range(self, connection_cursor, table_name, fields, start, end=None):
+
         if not end:
             end = "SELECT MAX(id) FROM " + table_name
         while start <= end:
@@ -94,73 +112,25 @@ class Decoder(object):
             if data:
                 try:
                     if data['source'] == 'app':
-                        yield self.html_entity_decode(data[fields])
-                    elif data['source'] == 'web':
-                        yield self.utf8_decode(data[fields])
+                        yield start, self.html_entity_decode(data[fields])
                     else:
-                        yield data[fields]
+                        if not self.if_in_english(data[fields]):
+                            yield start, self.utf8_decode(data[fields], start)
+                        else:
+                            yield start, data[fields]
                 except Exception:
-                    yield Exception.message
+                    yield None
             else:
-                yield "Nothing with id " + str(start)
+                yield None
             start += 1
 
-    """
-    :param connection_cursor: pymysql.connection cursor for different queries
-    :param table_name: table that contains the data
-    :param fields: column that contains the raw data to decode
-    :param id_no: data with this id
-    """
-    def decode_with_id(self, connection_cursor, table_name, fields, id_no):
-        sql = "SELECT * FROM " + table_name + " WHERE id = " + str(id_no)
-        connection_cursor.execute(sql)
-        data = connection_cursor.fetchone()
-        if data:
-            try:
-                if data['source'] == 'app':
-                    return self.html_entity_decode(data[fields])
-                elif data['source'] == 'web':
-                    return self.utf8_decode(data[fields])
-                else:
-                    return data[fields]
-            except Exception:
-                return Exception.message
-        else:
-            return "Nothing with id " + str(id_no)
-
-
-if __name__ == '__main__':
-    from database import Database
-
-    # #connection to the database
-    database = Database(
-        '<host_name>',
-        '<database_name>',
-        '<user_name>',
-        '<password>',
-        '<character_set>'
-    )
-    connection = database.connect_with_pymysql()
-
-    # #for a successful connection
-    if connection:
+    @staticmethod
+    def if_in_english(data):
         try:
-            with connection.cursor() as cursor:
-                # #decoder instance
-                decoder = Decoder()
-
-                # #example: with decode_in_range
-                for data in decoder.decode_in_range(cursor, 'table_name', 'field_name', 1, 100):
-                    print data
-                # #example: with decode_by_id
-                data = decoder.decode_with_id(cursor, 'table_name', 'field_name', 99475)
-                # #example: punctuation remove
-                data = Cleaner.punctuation_remover(data)
-                # #example: whitespace reomve
-                data = Cleaner.whitespace_remover(data)
-                # #example tokenizing
-                for word in data:
-                    print word
-        finally:
-            # #closing the connection
-            connection.close()
+            data.encode('ascii')
+        except UnicodeEncodeError:
+            return False
+        except UnicodeError:
+            return False
+        else:
+            return True

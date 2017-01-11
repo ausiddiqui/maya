@@ -1,0 +1,25 @@
+2016-12-29 16:26:38,399 - root - ERROR - Exception in finding repeat
+Traceback (most recent call last):
+  File "basic_filter.py", line 54, in is_repeat
+    if self.similar(sql_data['body'], question['body']) > SIMILARITY_COEFFICIENT:
+TypeError: 'NoneType' object has no attribute '__getitem__'
+2016-12-29 16:28:45,148 - root - ERROR - Exception in finding repeat
+Traceback (most recent call last):
+  File "basic_filter.py", line 54, in is_repeat
+    self.logger.debug('sql data %s, question %s',sql_data['body'], question['body'])
+TypeError: 'NoneType' object has no attribute '__getitem__'
+2016-12-29 16:29:38,862 - root - ERROR - Exception in finding repeat
+Traceback (most recent call last):
+  File "basic_filter.py", line 54, in is_repeat
+    self.logger.debug('sql data %s',sql_data['body'])
+TypeError: 'NoneType' object has no attribute '__getitem__'
+2016-12-29 16:31:01,310 - root - ERROR - Exception in finding repeat
+Traceback (most recent call last):
+  File "basic_filter.py", line 54, in is_repeat
+    print sql_data['body']
+TypeError: 'NoneType' object has no attribute '__getitem__'
+2016-12-29 16:33:21,713 - root - ERROR - Exception in finding repeat
+Traceback (most recent call last):
+  File "basic_filter.py", line 55, in is_repeat
+    if self.similar(sql_data['body'], question['body']) > SIMILARITY_COEFFICIENT:
+TypeError: 'NoneType' object has no attribute '__getitem__'
