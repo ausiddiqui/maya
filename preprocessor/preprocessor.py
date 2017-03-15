@@ -23,6 +23,7 @@ class Cleaner(object):
     """
     :param data: Data (str or unicode)
     :return: Data without the punctuation marks
+    ** ADD in punctuation characters for 2404, 55357, etc. **
     """
     @staticmethod
     def punctuation_remover(data):
@@ -42,7 +43,7 @@ class Cleaner(object):
 
     @staticmethod
     def remove_special_character(data):
-        char = {55357: u' ', 56842: u' ', 55356: u' ', 57198: u' ', 57252: u' '}
+        char = {55357: u' ', 56842: u' ', 55356: u' ', 57198: u' ', 57252: u' '} # Add in details for these characters, i.e. what are they?
         result = data.translate(char)
         return result
 
